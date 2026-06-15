@@ -1,37 +1,50 @@
-from fastapi import APIRouter
+import uuid
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 from typing import List
 from datetime import datetime, timezone
-from app.models.schemas import TestRun
+
+from app.models.schemas import TestRun, TestRunCreate
+from app.models.db_models import DBTestRun
+from app.db.session import get_db
 
 router = APIRouter()
 
 @router.get("/", response_model=List[TestRun])
-async def get_test_runs():
-    """
-    Fetch all test runs. 
-    Currently returns mock data. Will integrate with MySQL in Milestone 4.
-    """
-    mock_data = [
-        {
-            "id": "tr_1",
-            "name": "Authentication Flow",
-            "status": "passed",
-            "duration_ms": 1200,
-            "started_at": datetime.now(timezone.utc)
-        },
-        {
-            "id": "tr_2",
-            "name": "Payment Gateway Integration",
-            "status": "failed",
-            "duration_ms": 4500,
-            "started_at": datetime.now(timezone.utc)
-        },
-        {
-            "id": "tr_3",
-            "name": "User Profile Sync",
-            "status": "running",
-            "duration_ms": None,
-            "started_at": datetime.now(timezone.utc)
-        }
-    ]
-    return mock_data
+async def get_test_runs(db: AsyncSession = Depends(get_db)):
+    """Fetch all test runs from MySQL, ordered by newest first."""
+    # Build the query
+    stmt = select(DBTestRun).order_by(DBTestRun.started_at.desc())
+    
+    # Execute asynchronously
+    result = await db.execute(stmt)
+    
+    # Extract the scalar values (the actual DBTestRun objects)
+    runs = result.scalars().all()
+    
+    return runs
+
+@router.post("/", response_model=TestRun, status_code=201)
+async def create_test_run(run_in: TestRunCreate, db: AsyncSession = Depends(get_db)):
+    """Create a new test run in the database."""
+    # Generate a unique ID for the test run (e.g., tr_a1b2c3d4)
+    new_id = f"tr_{uuid.uuid4().hex[:8]}"
+    
+    # Map the Pydantic input schema to the SQLAlchemy database model
+    new_run = DBTestRun(
+        id=new_id,
+        name=run_in.name,
+        status=run_in.status,
+        duration_ms=run_in.duration_ms,
+        started_at=datetime.now(timezone.utc)
+    )
+    
+    # Add to the session and commit to the database
+    db.add(new_run)
+    await db.commit()
+    
+    # Refresh retrieves the exact state from the database (just to be safe)
+    await db.refresh(new_run)
+    
+    return new_run
