@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  # 1. The MySQL Database Container
+  db:
+    image: mysql:8.0
+    container_name: agentic_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: qwer1234
+      MYSQL_DATABASE: agentic_dashboard
+    ports:
+      - "3307:3306"
+    volumes:
+      # This ensures your database data isn't deleted when the container stops
+      - db_data:/var/lib/mysql
+
+  # 2. The FastAPI Backend Container
+  backend:
+    build: ./backend
+    container_name: agentic_backend
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      # We override the .env file here. Notice we use 'db' instead of 'localhost'
+      - DATABASE_URL=mysql+aiomysql://root:qwer1234@db:3306/agentic_dashboard
+    depends_on:
+      - db
+
+  # 3. The Vue Frontend Container
+  frontend:
+    build: ./frontend
+    container_name: agentic_frontend
+    restart: always
+    ports:
+      # We map port 8080 on your computer to port 80 inside the Nginx container
+      - "8080:80"
+    depends_on:
+      - backend
+
+# Define the persistent volume for the database
+volumes:
+  db_data:
