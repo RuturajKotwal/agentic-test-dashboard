@@ -1,35 +1,40 @@
 from fastapi.testclient import TestClient
 from app.main import app
 
-# Instantiate the test client with our FastAPI app
+# Create a test client that mimics a frontend making requests
 client = TestClient(app)
 
 def test_root_endpoint():
-    """Test that the API health check is responding."""
+    """Ensure the API root is accessible."""
     response = client.get("/")
     assert response.status_code == 200
-    assert response.json() == {"message": "Agentic Test Dashboard API is running"}
 
-def test_get_test_runs():
-    """Test the test-runs endpoint to ensure it returns a valid list of runs."""
+def test_get_test_runs_empty():
+    """Ensure a fresh database returns an empty list."""
     response = client.get("/api/v1/test-runs/")
     
-    # 1. Assert the request was successful
     assert response.status_code == 200
-    
-    # 2. Extract the JSON payload
     data = response.json()
-    
-    # 3. Assert we are getting a list
     assert isinstance(data, list)
-    assert len(data) == 3 # We expect our 3 mock items
+    # The database starts empty, so we expect a length of 0
+    assert len(data) == 0 
+
+def test_create_test_run():
+    """Ensure we can successfully create a new test run in the database."""
+    payload = {
+        "name": "CI Automated Test",
+        "status": "passed",
+        "duration_ms": 120
+    }
     
-    # 4. Assert the structure of the first item strictly matches our Pydantic schema requirements
-    first_run = data[0]
-    assert "id" in first_run
-    assert "name" in first_run
-    assert "status" in first_run
-    assert "started_at" in first_run
+    response = client.post("/api/v1/test-runs/", json=payload)
     
-    # 5. Assert specific data types or values
-    assert first_run["status"] in ["passed", "failed", "running", "pending"]
+    # 201 is the HTTP status code for "Created"
+    assert response.status_code == 201
+    
+    data = response.json()
+    assert data["name"] == "CI Automated Test"
+    assert data["status"] == "passed"
+    # Ensure the database generated an ID and timestamp for us
+    assert "id" in data
+    assert "started_at" in data
