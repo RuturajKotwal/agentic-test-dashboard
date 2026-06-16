@@ -35,9 +35,11 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install aiosqlite
           
-      # 3. FIX THE ERROR: Execute Pytest explicitly through the Python module and point it exactly at the tests folder
+      - name: Initialize Test Database
+        run: python init_db.py
+      
       - name: Run Pytest
-        run: python -m pytest tests/ -v
+        run: pytest
 
   frontend-build:
     runs-on: ubuntu-latest
