@@ -39,7 +39,7 @@ jobs:
         run: python init_db.py
       
       - name: Run Pytest
-        run: pytest
+        run: python -m pytest tests/ -v
 
   frontend-build:
     runs-on: ubuntu-latest
