@@ -1,19 +1,24 @@
 name: Full Stack CI
 
-# This tells GitHub to run this pipeline whenever code is pushed to main
 on:
   push:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
 
+# 1. FIX THE WARNINGS: Force GitHub to use the modern Node.js 24 runner
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
-  # JOB 1: Test the Python Backend
   backend-tests:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ./backend
+    # 2. FIX THE ERROR: Provide dummy environment variables so SQLAlchemy doesn't crash during imports
+    env:
+      DATABASE_URL: sqlite+aiosqlite:///./test.db
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -27,12 +32,12 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python -m pip install -r requirements.txt
           
+      # 3. FIX THE ERROR: Execute Pytest explicitly through the Python module and point it exactly at the tests folder
       - name: Run Pytest
-        run: pytest
+        run: python -m pytest tests/ -v
 
-  # JOB 2: Build the Vue Frontend
   frontend-build:
     runs-on: ubuntu-latest
     defaults:
@@ -52,7 +57,5 @@ jobs:
       - name: Install dependencies
         run: npm install
         
-      # This compiles the TypeScript and builds the Vue app. 
-      # If there are any syntax/type errors, the pipeline will fail here!
       - name: Type Check & Build
         run: npm run build
